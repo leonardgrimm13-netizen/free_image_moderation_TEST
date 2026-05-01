@@ -200,6 +200,7 @@ PHASH_AUTO_BLOCK_APPEND=1
 ```
 
 Nützliche Schalter:
+- `API_POLICY=always|on_review|never` steuert, wann API-Engines laufen
 - `OPENAI_DISABLE=1` / `SIGHTENGINE_*` weglassen, wenn API-Engines nicht genutzt werden
 - `PHASH_ALLOW_DISABLE=1` oder `PHASH_BLOCK_DISABLE=1` zum gezielten Abschalten
 - `SCORE_VERBOSE=1` für ausführlichere Engine-Scores
@@ -210,6 +211,7 @@ Nützliche Schalter:
 ---
 
 ## 🧠 Ergebnislogik (OK / REVIEW / BLOCK)
+- **Staged Pipeline:** `pHash` → lokale Engines → optionale API-Engines → finales Urteil
 - **pHash-Short-Circuit** kann früh entscheiden:
   - Allowlist-Treffer → direkt `OK`
   - Blocklist-Treffer → direkt `BLOCK`

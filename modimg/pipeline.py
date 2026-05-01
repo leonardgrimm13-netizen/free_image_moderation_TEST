@@ -38,14 +38,22 @@ def build_pre_engines(*, no_apis: bool = False) -> List[Engine]:
     return [PHashBlocklistEngine(), PHashAllowlistEngine()]
 
 
-def build_main_engines(*, no_apis: bool = False) -> List[Engine]:
-    engines: List[Engine] = [OCREngine(), NudeNetEngine(), OpenNSFW2Engine(), YOLOWorldWeaponsEngine()]
+def build_local_engines(*, no_apis: bool = False) -> List[Engine]:
+    return [OCREngine(), NudeNetEngine(), OpenNSFW2Engine(), YOLOWorldWeaponsEngine()]
+
+
+def build_api_engines(*, no_apis: bool = False) -> List[Engine]:
+    engines: List[Engine] = []
     cfg = get_config()
     if (not no_apis) and (not cfg.openai_disable):
         engines.append(OpenAIModerationEngine())
     if (not no_apis) and (not cfg.sightengine_disable):
         engines.append(SightengineEngine())
     return engines
+
+
+def build_main_engines(*, no_apis: bool = False) -> List[Engine]:
+    return build_local_engines(no_apis=no_apis) + build_api_engines(no_apis=no_apis)
 
 
 def _run_single_engine(path: str, frames: List[Frame], engine: Engine) -> EngineResult:
@@ -166,13 +174,35 @@ def run_on_input(inp: str, *, no_apis: bool = False, sample_frames: int = 12) ->
     pre_results = run_engines(path, frames, build_pre_engines(no_apis=no_apis))
     sc = _short_circuit_from_phash(pre_results)
 
-    if sc is not None and get_config().short_circuit_phash:
+    cfg = get_config()
+    if sc is not None and cfg.short_circuit_phash:
         results = pre_results
         v = sc
     else:
-        main_results = run_engines(path, frames, build_main_engines(no_apis=no_apis))
-        results = pre_results + main_results
-        v = compute_verdict(results)
+        local_results = run_engines(path, frames, build_local_engines(no_apis=no_apis))
+        local_with_pre = pre_results + local_results
+        local_verdict = compute_verdict(local_with_pre)
+
+        should_run_apis = False
+        if (not no_apis) and cfg.api_policy != "never":
+            api_engines = build_api_engines(no_apis=no_apis)
+            if cfg.api_policy == "always":
+                should_run_apis = len(api_engines) > 0
+            elif cfg.api_policy == "on_review":
+                label = local_verdict.label
+                should_run_apis = len(api_engines) > 0 and (
+                    label == VerdictLabel.REVIEW or str(label).upper() == VerdictLabel.REVIEW.value
+                )
+            if should_run_apis:
+                api_results = run_engines(path, frames, api_engines)
+                results = local_with_pre + api_results
+                v = compute_verdict(results)
+            else:
+                results = local_with_pre
+                v = local_verdict
+        else:
+            results = local_with_pre
+            v = local_verdict
 
     learn_msg = maybe_auto_learn(v, frames)
 
