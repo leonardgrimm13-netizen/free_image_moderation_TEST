@@ -200,6 +200,7 @@ PHASH_AUTO_BLOCK_APPEND=1
 ```
 
 Useful toggles:
+- `API_POLICY=always|on_review|never` steuert, wann API-Engines laufen
 - `OPENAI_DISABLE=1` / omit `SIGHTENGINE_*` if you don’t use API engines
 - `PHASH_ALLOW_DISABLE=1` or `PHASH_BLOCK_DISABLE=1` to disable them selectively
 - `SCORE_VERBOSE=1` for more verbose engine scores
@@ -210,6 +211,7 @@ Useful toggles:
 ---
 
 ## 🧠 Result logic (OK / REVIEW / BLOCK)
+- **Staged pipeline:** `pHash` → local engines → optional API engines → final verdict
 - **pHash short-circuit** can decide early:
   - allowlist hit → `OK`
   - blocklist hit → `BLOCK`

@@ -84,6 +84,7 @@ class Config:
     parallel_engines: bool
     parallel_workers: int
     debug: bool
+    api_policy: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -99,7 +100,24 @@ class Config:
             parallel_engines=env_bool("MODIMG_PARALLEL_ENGINES", False),
             parallel_workers=max(1, env_int("MODIMG_PARALLEL_WORKERS", 4)),
             debug=env_bool("MODIMG_DEBUG", False) or env_bool("DEBUG", False),
+            api_policy=_normalize_api_policy(os.getenv("API_POLICY", "always")),
         )
+
+
+def _normalize_api_policy(value: str | None) -> str:
+    raw = (value or "always").strip().lower()
+    aliases = {
+        "always": "always",
+        "all": "always",
+        "on_review": "on_review",
+        "review": "on_review",
+        "uncertain": "on_review",
+        "never": "never",
+        "off": "never",
+        "disabled": "never",
+        "none": "never",
+    }
+    return aliases.get(raw, "always")
 
 
 _CURRENT_CONFIG: Config | None = None
