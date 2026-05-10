@@ -1,7 +1,0 @@
-path: /home/leo/new/py_free_image_moderation/datasets/harmful-symbols-v6
-train: train/images
-val: valid/images
-test: test/images
-
-nc: 13
-names: ['Antifa', 'Identitare Bewegung', 'black_sun', 'broken_sun_cross', 'celtic_cross', 'communism', 'confederate-flag', 'happy_merchant', 'isis', 'siegrune', 'ss_skull', 'swastika', 'wolfsangel']

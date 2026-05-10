@@ -205,3 +205,36 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Training datasets / Roboflow exports
+datasets/
+*.zip
+
+# Ultralytics / YOLO training outputs
+runs/
+wandb/
+*.cache
+
+# ML model weights / exports
+*.pt
+*.pth
+*.onnx
+*.engine
+*.torchscript
+*.tflite
+*.pb
+
+# Local model storage
+models/*
+!models/.gitkeep
+
+# Python/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local env
+.venv/
+.env
