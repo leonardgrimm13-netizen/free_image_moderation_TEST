@@ -25,6 +25,11 @@ def _env_float(name: str, default: float) -> float:
         return float(default)
 
 
+def _env_label_set(name: str, default: str = "") -> set[str]:
+    raw = os.getenv(name, default) or default
+    return {x.strip().lower() for x in raw.split(",") if x.strip()}
+
+
 def _resolve_model_path(model_path: str | None = None) -> Path:
     raw = (model_path or os.getenv("FORBIDDEN_SYMBOLS_YOLO_MODEL", "models/forbidden_symbols_yolo.pt") or "models/forbidden_symbols_yolo.pt").strip()
     p = Path(raw)
@@ -33,7 +38,7 @@ def _resolve_model_path(model_path: str | None = None) -> Path:
     return p.resolve()
 
 
-def _looks_like_lfs_pointer(path: Path) -> bool:
+def _looks_like_model_pointer(path: Path) -> bool:
     try:
         if path.stat().st_size > 1024:
             return False
@@ -47,7 +52,7 @@ def _load_model(model_path: str | None = None) -> Any:
     resolved = _resolve_model_path(model_path)
     if not resolved.exists():
         raise RuntimeError(f"missing forbidden symbols YOLO model: {resolved}")
-    if _looks_like_lfs_pointer(resolved):
+    if _looks_like_model_pointer(resolved):
         raise RuntimeError(f"model pointer file detected instead of real model weights: {resolved}")
 
     key = str(resolved)
@@ -129,7 +134,7 @@ class YOLOForbiddenSymbolsEngine(Engine):
         model_path = _resolve_model_path()
         model_exists = model_path.exists()
         model_size = model_path.stat().st_size if model_exists else 0
-        lfs_pointer = _looks_like_lfs_pointer(model_path) if model_exists else False
+        model_pointer = _looks_like_model_pointer(model_path) if model_exists else False
 
         model = _load_model(str(model_path))
 
@@ -139,10 +144,11 @@ class YOLOForbiddenSymbolsEngine(Engine):
         max_det = env_int("FORBIDDEN_SYMBOLS_YOLO_MAX_DET", 20)
         max_frames = env_int("FORBIDDEN_SYMBOLS_YOLO_MAX_FRAMES", 2)
         review_conf = _env_float("FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF", 0.30)
-        block_conf = _env_float("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", 0.65)
+        block_conf = _env_float("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", 0.90)
         device_raw = (os.getenv("FORBIDDEN_SYMBOLS_YOLO_DEVICE", "auto") or "auto").strip()
         device = None if device_raw.lower() in ("", "auto") else device_raw
         include_boxes = env_bool("FORBIDDEN_SYMBOLS_YOLO_INCLUDE_BOXES", True)
+        ignore_labels = _env_label_set("FORBIDDEN_SYMBOLS_YOLO_IGNORE_LABELS", "")
 
         selected_frames = frames[:max_frames] if max_frames > 0 else frames
         detections: list[dict[str, Any]] = []
@@ -165,6 +171,9 @@ class YOLOForbiddenSymbolsEngine(Engine):
 
                 for raw_cid, raw_conf, raw_box in zip(class_ids, confidences, xyxy_values):
                     class_id = int(raw_cid)
+                    label = _name_for(class_id, result_names, names)
+                    if label.strip().lower() in ignore_labels:
+                        continue
                     det_conf = safe_float01(raw_conf)
                     box = [float(v) for v in list(raw_box)[:4]] if raw_box is not None else []
                     if len(box) < 4:
@@ -180,7 +189,7 @@ class YOLOForbiddenSymbolsEngine(Engine):
                     det: dict[str, Any] = {
                         "frame_idx": int(fr.idx),
                         "class_id": class_id,
-                        "label": _name_for(class_id, result_names, names),
+                        "label": label,
                         "confidence": det_conf,
                         "image_size": [int(width), int(height)],
                         "area_ratio": area_ratio,
@@ -221,7 +230,7 @@ class YOLOForbiddenSymbolsEngine(Engine):
                 "top_label": top_label,
                 "top_confidence": safe_float01(max_conf),
                 "detections": detections,
-                "lfs_pointer_detected": bool(lfs_pointer),
+                "model_pointer_detected": bool(model_pointer),
             },
             took_ms=now_ms() - start,
         )

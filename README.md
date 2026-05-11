@@ -17,7 +17,7 @@ A flexible Python project for **image and GIF moderation** with multiple engines
 
 ## ✨ Features
 - **Multi-stage moderation** for single images, GIFs, directories, and URLs
-- **pHash allowlist/blocklist** for very fast short-circuit decisions
+- **pHash allowlist/blocklist** for very fast short-circuit decisions; pHash auto-learning is off by default to avoid learning false positives
 - **OCR text check** (e.g., against text blocklists)
 - Combinable engines:
   - `OpenNSFW2`
@@ -61,20 +61,21 @@ py_free_image_moderation/
 
 ### 1) Repository and venv
 ```bash
-git clone https://github.com/leonardgrimm13-netizen/py_free_image_moderation.git
-cd py_free_image_moderation
+git clone https://github.com/leonardgrimm13-netizen/free_image_moderation_TEST.git
+cd free_image_moderation_TEST
 
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-# Windows: .venv\Scripts\activate
 ```
+
+Windows activation, if needed: `.venv\Scripts\activate`.
 
 ### 2) Install options
 
 #### A) Offline/Local
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
 ```
 
 Includes the local runtime + engine dependencies (without API clients):
@@ -90,7 +91,7 @@ This enables the local pipeline including pHash, local YOLO forbidden-symbol det
 
 #### B) With APIs
 ```bash
-pip install -r requirements_api.txt
+python3 -m pip install -r requirements_api.txt
 ```
 
 Includes everything from `requirements.txt` plus API clients:
@@ -99,13 +100,13 @@ Includes everything from `requirements.txt` plus API clients:
 
 ### 3) Dev/Test dependencies
 ```bash
-pip install -r requirements_dev.txt
+python3 -m pip install -r requirements_dev.txt
 ```
 
 Includes e.g. `pytest` for local test runs.
 
 ### 4) Bundled local YOLO model
-This repository includes `models/forbidden_symbols_yolo.pt` directly as a normal repository file. No Git LFS setup is required.
+This repository includes `models/forbidden_symbols_yolo.pt` directly as a normal repository file.
 
 The model is loaded locally by the `YOLO forbidden symbols` engine. It never calls Roboflow or any external API at runtime.
 
@@ -120,47 +121,48 @@ For OCR you typically need a local Tesseract install:
 
 ### Check a single image
 ```bash
-python moderate_image.py /path/to/image.jpg
+python3 moderate_image.py /path/to/image.jpg
 ```
 
 ### Check a GIF (frame sampling)
 ```bash
-python moderate_image.py /path/to/file.gif --sample-frames 12
+python3 moderate_image.py /path/to/file.gif --sample-frames 12
 ```
 
 ### Check a URL
 ```bash
-python moderate_image.py "https://example.com/image.jpg"
+python3 moderate_image.py "https://example.com/image.jpg"
 ```
 
 ### Check a directory
 ```bash
-python moderate_image.py ./images --recursive
+python3 moderate_image.py ./images --recursive
 ```
 
 ### Without external APIs (base install is enough)
 ```bash
-python moderate_image.py ./images --recursive --no-apis
+python3 moderate_image.py ./images --recursive --no-apis
 ```
 
 Local YOLO forbidden-symbol output is shown with compact numeric scores, for example:
 ```text
 [ok] YOLO forbidden symbols (...) forbidden_symbols_max_conf=0.00
-[ok] YOLO forbidden symbols (...) forbidden_symbols_max_conf=0.72, forbidden_symbols_block_hit=1.00
+[ok] YOLO forbidden symbols (...) forbidden_symbols_max_conf=0.72, forbidden_symbols_review_hit=1.00, forbidden_symbols_block_hit=0.00
+[ok] YOLO forbidden symbols (...) forbidden_symbols_max_conf=0.93, forbidden_symbols_review_hit=1.00, forbidden_symbols_block_hit=1.00
 ```
 
 ### Write a JSON report
 ```bash
-python moderate_image.py ./images --recursive --json moderation_report.json
+python3 moderate_image.py ./images --recursive --json moderation_report.json
 ```
 
 ### Benchmark mode
 Benchmark mode measures runtime per file and per engine without changing moderation decisions.
 
 ```bash
-python moderate_image.py ./images --recursive --no-apis --benchmark
-python moderate_image.py ./images --recursive --no-apis --benchmark-json benchmark.json
-python moderate_image.py ./images --recursive --no-apis --json moderation_report.json --benchmark-json benchmark.json
+python3 moderate_image.py ./images --recursive --no-apis --benchmark
+python3 moderate_image.py ./images --recursive --no-apis --benchmark-json benchmark.json
+python3 moderate_image.py ./images --recursive --no-apis --json moderation_report.json --benchmark-json benchmark.json
 ```
 
 Benchmark JSON field `total_wall_ms` includes only wall-clock time spent processing inputs (not time spent writing JSON output files).
@@ -173,17 +175,17 @@ Benchmark JSON field `total_wall_ms` includes only wall-clock time spent process
 
 ## ✅ Verification
 ```bash
-python -m compileall -q .
+python3 -m compileall -q .
 pytest -q
-python moderate_image.py --help
-python moderate_image.py path/to/test.png --no-apis
+python3 moderate_image.py --help
+python3 moderate_image.py path/to/test.png --no-apis
 ```
 
 Expected behavior (short):
-- `python -m compileall -q .` → exit code `0` if code is syntactically valid.
+- `python3 -m compileall -q .` → exit code `0` if code is syntactically valid.
 - `pytest -q` → exit code `0` if tests pass, otherwise non-zero.
-- `python moderate_image.py --help` → exit code `0` and shows CLI help.
-- `python moderate_image.py path/to/test.png --no-apis` → exit code `0` if the input is `OK`, or `2` if it returns `REVIEW`/`BLOCK`.
+- `python3 moderate_image.py --help` → exit code `0` and shows CLI help.
+- `python3 moderate_image.py path/to/test.png --no-apis` → exit code `0` if the input is `OK`, or `2` if it returns `REVIEW`/`BLOCK`.
 
 Optional engines may be missing; they must show up as `skipped`/`disabled` in output instead of aborting execution.
 
@@ -211,16 +213,22 @@ OCR_LANG=eng
 
 # pHash auto-learn
 PHASH_AUTO_LEARN_ENABLE=0
-PHASH_AUTO_ALLOW_APPEND=1
-PHASH_AUTO_BLOCK_APPEND=1
+PHASH_AUTO_ALLOW_APPEND=0
+PHASH_AUTO_BLOCK_APPEND=0
 
 # Local YOLO forbidden/harmful-symbol model
 FORBIDDEN_SYMBOLS_YOLO_ENABLE=1
 FORBIDDEN_SYMBOLS_YOLO_MODEL=models/forbidden_symbols_yolo.pt
 FORBIDDEN_SYMBOLS_YOLO_CONF=0.20
-FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF=0.30
-FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF=0.65
+FORBIDDEN_SYMBOLS_YOLO_IOU=0.45
 FORBIDDEN_SYMBOLS_YOLO_IMGSZ=960
+FORBIDDEN_SYMBOLS_YOLO_MAX_DET=20
+FORBIDDEN_SYMBOLS_YOLO_MAX_FRAMES=2
+FORBIDDEN_SYMBOLS_YOLO_DEVICE=auto
+FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF=0.30
+FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF=0.90
+FORBIDDEN_SYMBOLS_YOLO_INCLUDE_BOXES=1
+FORBIDDEN_SYMBOLS_YOLO_IGNORE_LABELS=
 ```
 
 Useful toggles:
@@ -238,9 +246,10 @@ Useful toggles:
 - `FORBIDDEN_SYMBOLS_YOLO_ENABLE=1` enables the bundled local model by default.
 - `FORBIDDEN_SYMBOLS_YOLO_CONF=0.20` controls the raw YOLO detection confidence.
 - `FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF=0.30` controls when detections should push the verdict to `REVIEW`.
-- `FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF=0.65` controls when detections should push the verdict to `BLOCK`.
-- Recommended defaults: `conf=0.20`, `review=0.30`, `block=0.65`, `imgsz=960`.
+- `FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF=0.90` controls when detections should push the verdict to `BLOCK`.
+- Recommended defaults: `conf=0.20`, `review=0.30`, `block=0.90`, `imgsz=960`.
 - For faster CPU scans, try `FORBIDDEN_SYMBOLS_YOLO_IMGSZ=640`, `FORBIDDEN_SYMBOLS_YOLO_MAX_FRAMES=1`, and `FORBIDDEN_SYMBOLS_YOLO_DEVICE=cpu`.
+- Unreliable labels can be ignored at runtime, e.g. `FORBIDDEN_SYMBOLS_YOLO_IGNORE_LABELS=communism,antifa`.
 
 ---
 

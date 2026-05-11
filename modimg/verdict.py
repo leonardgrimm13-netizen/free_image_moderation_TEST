@@ -197,7 +197,7 @@ def compute_verdict(results: List[EngineResult]) -> Verdict:
 
         if r.name == "YOLO forbidden symbols":
             max_conf = sf(s.get("forbidden_symbols_max_conf", 0.0))
-            block_conf = _env_float("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", 0.65)
+            block_conf = _env_float("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", 0.90)
             review_conf = _env_float("FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF", 0.30)
             top_label = ""
             try:

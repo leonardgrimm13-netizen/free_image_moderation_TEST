@@ -60,17 +60,22 @@ def test_forbidden_symbols_engine_model_pointer(monkeypatch, tmp_path) -> None:
 
 class FakeBoxes:
     cls = [0]
-    conf = [0.72]
     xyxy = [[10, 20, 110, 80]]
+
+    def __init__(self, confidence: float = 0.72) -> None:
+        self.conf = [confidence]
 
 
 class FakeResult:
     names = {0: "test_symbol"}
-    boxes = FakeBoxes()
+
+    def __init__(self, confidence: float = 0.72) -> None:
+        self.boxes = FakeBoxes(confidence)
 
 
 class FakeYOLO:
     names = {0: "test_symbol"}
+    confidence = 0.72
 
     def __init__(self, model_path: str) -> None:
         self.model_path = model_path
@@ -81,12 +86,13 @@ class FakeYOLO:
         assert kwargs["imgsz"] == 960
         assert kwargs["max_det"] == 20
         assert kwargs["verbose"] is False
-        return [FakeResult()]
+        return [FakeResult(self.confidence)]
 
 
 def test_forbidden_symbols_engine_mock_detection(monkeypatch, tmp_path) -> None:
     model = tmp_path / "model.pt"
-    model.write_bytes(b"not a git lfs pointer" * 200)
+    model.write_bytes(b"not a model pointer" * 200)
+    FakeYOLO.confidence = 0.72
     fake_module = types.SimpleNamespace(YOLO=FakeYOLO)
     monkeypatch.setitem(sys.modules, "ultralytics", fake_module)
     monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_ENABLE", "1")
@@ -105,6 +111,42 @@ def test_forbidden_symbols_engine_mock_detection(monkeypatch, tmp_path) -> None:
     assert result.details["detections"][0]["bbox_norm_xyxy"] == pytest.approx([0.05, 0.2, 0.55, 0.8])
 
 
+def test_forbidden_symbols_engine_mock_high_confidence_blocks(monkeypatch, tmp_path) -> None:
+    model = tmp_path / "model.pt"
+    model.write_bytes(b"not a model pointer" * 200)
+    FakeYOLO.confidence = 0.93
+    fake_module = types.SimpleNamespace(YOLO=FakeYOLO)
+    monkeypatch.setitem(sys.modules, "ultralytics", fake_module)
+    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_ENABLE", "1")
+    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_MODEL", str(model))
+
+    result = YOLOForbiddenSymbolsEngine().execute("dummy.png", _frame())
+
+    assert result.status == EngineStatus.OK
+    assert result.scores["forbidden_symbols_max_conf"] == pytest.approx(0.93)
+    assert result.scores["forbidden_symbols_review_hit"] == 1.0
+    assert result.scores["forbidden_symbols_block_hit"] == 1.0
+
+
+def test_forbidden_symbols_engine_ignore_labels(monkeypatch, tmp_path) -> None:
+    model = tmp_path / "model.pt"
+    model.write_bytes(b"not a model pointer" * 200)
+    FakeYOLO.confidence = 0.93
+    fake_module = types.SimpleNamespace(YOLO=FakeYOLO)
+    monkeypatch.setitem(sys.modules, "ultralytics", fake_module)
+    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_ENABLE", "1")
+    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_MODEL", str(model))
+    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_IGNORE_LABELS", "test_symbol")
+
+    result = YOLOForbiddenSymbolsEngine().execute("dummy.png", _frame())
+
+    assert result.status == EngineStatus.OK
+    assert result.scores["forbidden_symbols_detected"] == 0.0
+    assert result.scores["forbidden_symbols_detection_count"] == 0.0
+    assert result.scores["forbidden_symbols_max_conf"] == 0.0
+    assert result.details["top_label"] == ""
+
+
 def _yolo_result(conf: float) -> EngineResult:
     return EngineResult(
         name="YOLO forbidden symbols",
@@ -115,8 +157,8 @@ def _yolo_result(conf: float) -> EngineResult:
 
 
 def test_verdict_forbidden_symbols_block(monkeypatch) -> None:
-    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", "0.65")
-    verdict = compute_verdict([_yolo_result(0.80)])
+    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", "0.90")
+    verdict = compute_verdict([_yolo_result(0.93)])
     assert verdict.label == VerdictLabel.BLOCK
     assert verdict.hate_risk >= 1.0
     assert any("YOLO forbidden symbol" in reason for reason in verdict.reasons)
@@ -124,15 +166,15 @@ def test_verdict_forbidden_symbols_block(monkeypatch) -> None:
 
 def test_verdict_forbidden_symbols_review(monkeypatch) -> None:
     monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF", "0.30")
-    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", "0.65")
-    verdict = compute_verdict([_yolo_result(0.40)])
+    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", "0.90")
+    verdict = compute_verdict([_yolo_result(0.72)])
     assert verdict.label == VerdictLabel.REVIEW
     assert any("possible forbidden symbol" in reason for reason in verdict.reasons)
 
 
 def test_verdict_forbidden_symbols_below_threshold(monkeypatch) -> None:
     monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF", "0.30")
-    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", "0.65")
+    monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF", "0.90")
     verdict = compute_verdict([_yolo_result(0.10)])
     assert verdict.label == VerdictLabel.OK
     assert not verdict.reasons
