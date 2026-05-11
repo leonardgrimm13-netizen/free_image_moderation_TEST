@@ -97,7 +97,8 @@ def test_forbidden_symbols_engine_mock_detection(monkeypatch, tmp_path) -> None:
     assert result.status == EngineStatus.OK
     assert result.scores["forbidden_symbols_detected"] == 1.0
     assert result.scores["forbidden_symbols_max_conf"] == pytest.approx(0.72)
-    assert result.scores["forbidden_symbols_block_hit"] == 1.0
+    assert result.scores["forbidden_symbols_review_hit"] == 1.0
+    assert result.scores["forbidden_symbols_block_hit"] == 0.0
     assert result.details["top_label"] == "test_symbol"
     assert result.details["model_path"] == str(model.resolve())
     assert result.details["detections"][0]["bbox_xyxy"] == [10.0, 20.0, 110.0, 80.0]
