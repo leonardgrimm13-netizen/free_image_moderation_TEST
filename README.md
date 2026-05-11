@@ -39,7 +39,7 @@ py_free_image_moderation/
 ├── requirements.txt
 ├── requirements_api.txt
 ├── models/
-│   └── forbidden_symbols_yolo.pt  # bundled Git-LFS YOLO model for local symbol detection
+│   └── forbidden_symbols_yolo.pt  # bundled local YOLO model for forbidden-symbol detection
 ├── data/
 │   ├── phash_allowlist.txt
 │   ├── phash_blocklist.txt
@@ -104,13 +104,10 @@ pip install -r requirements_dev.txt
 
 Includes e.g. `pytest` for local test runs.
 
-### 4) Git LFS model
-This repository includes `models/forbidden_symbols_yolo.pt` through Git LFS. After cloning, run:
-```bash
-git lfs install
-git lfs pull
-```
-If the program reports `Git LFS pointer detected`, run those commands and retry. The model is loaded locally; the engine never calls Roboflow or any external API at runtime.
+### 4) Bundled local YOLO model
+This repository includes `models/forbidden_symbols_yolo.pt` directly as a normal repository file. No Git LFS setup is required.
+
+The model is loaded locally by the `YOLO forbidden symbols` engine. It never calls Roboflow or any external API at runtime.
 
 ### 5) Optional system dependency for OCR
 For OCR you typically need a local Tesseract install:
