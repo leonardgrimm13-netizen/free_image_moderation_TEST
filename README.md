@@ -1,4 +1,4 @@
-# free_image_moderation_TEST
+# py_free_image_moderation
 A flexible Python project for **image and GIF moderation** with multiple engines (local + API), pHash lists, and clear CLI output.
 
 **Languages:** **English** | [German](README.de.md)
@@ -34,7 +34,7 @@ A flexible Python project for **image and GIF moderation** with multiple engines
 
 ## 📁 Project structure
 ```text
-free_image_moderation_TEST/
+py_free_image_moderation/
 ├── moderate_image.py         # Entry point (CLI wrapper)
 ├── requirements.txt
 ├── requirements_api.txt
