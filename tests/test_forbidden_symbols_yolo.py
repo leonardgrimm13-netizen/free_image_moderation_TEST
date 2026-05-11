@@ -45,7 +45,7 @@ def test_forbidden_symbols_engine_missing_model(monkeypatch, tmp_path) -> None:
     assert "missing forbidden symbols YOLO model" in (result.error or "")
 
 
-def test_forbidden_symbols_engine_lfs_pointer(monkeypatch, tmp_path) -> None:
+def test_forbidden_symbols_engine_model_pointer(monkeypatch, tmp_path) -> None:
     pointer = tmp_path / "model.pt"
     pointer.write_text("version https://git-lfs.github.com/spec/v1\n", encoding="utf-8")
     monkeypatch.setenv("FORBIDDEN_SYMBOLS_YOLO_ENABLE", "1")
@@ -54,8 +54,8 @@ def test_forbidden_symbols_engine_lfs_pointer(monkeypatch, tmp_path) -> None:
     result = YOLOForbiddenSymbolsEngine().execute("dummy.png", _frame())
 
     assert result.status == EngineStatus.ERROR
-    assert "Git LFS pointer detected" in (result.error or "")
-    assert "git lfs install && git lfs pull" in (result.error or "")
+    assert "model pointer file detected" in (result.error or "")
+    assert "real model weights" in (result.error or "")
 
 
 class FakeBoxes:
