@@ -56,6 +56,7 @@ wandb/
 # Local model storage
 models/*
 !models/.gitkeep
+!models/forbidden_symbols_yolo.pt
 
 # Reports / generated output
 moderation_report.json

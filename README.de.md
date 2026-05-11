@@ -23,6 +23,7 @@ Ein flexibles Python-Projekt zur **Bild- und GIF-Moderation** mit mehreren Engin
   - `OpenNSFW2`
   - `NudeNet`
   - `YOLO` (Waffen-Erkennung)
+  - `YOLO forbidden symbols` (Lokale YOLO-Erkennung für verbotene/schädliche Symbole mit `models/forbidden_symbols_yolo.pt`)
   - `OpenAI Moderation` (optional per API-Key)
   - `Sightengine` (optional per API-Credentials)
 - **GIF-Handling** mit konfigurierbarem Frame-Sampling
@@ -37,6 +38,8 @@ py_free_image_moderation/
 ├── moderate_image.py         # Einstiegspunkt (CLI-Wrapper)
 ├── requirements.txt
 ├── requirements_api.txt
+├── models/
+│   └── forbidden_symbols_yolo.pt  # gebündeltes Git-LFS-YOLO-Modell für lokale Symbolerkennung
 ├── data/
 │   ├── phash_allowlist.txt
 │   ├── phash_blocklist.txt
@@ -83,7 +86,7 @@ Enthält die lokalen Laufzeit- und Engine-Abhängigkeiten (ohne API-Clients):
 - `ultralytics`
 - `pytesseract`
 
-Damit funktioniert die lokale Pipeline inkl. pHash und `--no-apis`.
+Damit funktioniert die lokale Pipeline inkl. pHash, lokaler YOLO-Erkennung für verbotene/schädliche Symbole und `--no-apis`.
 
 #### B) Mit APIs
 ```bash
@@ -101,7 +104,15 @@ pip install -r requirements_dev.txt
 
 Enthält z. B. `pytest` für lokale Testläufe.
 
-### 4) Optionale System-Abhängigkeit für OCR
+### 4) Git-LFS-Modell
+Dieses Repository enthält `models/forbidden_symbols_yolo.pt` über Git LFS. Nach dem Klonen ausführen:
+```bash
+git lfs install
+git lfs pull
+```
+Wenn das Programm `Git LFS pointer detected` meldet, diese Befehle ausführen und erneut starten. Das Modell wird lokal geladen; zur Laufzeit werden kein Roboflow und keine externe API verwendet.
+
+### 5) Optionale System-Abhängigkeit für OCR
 Für OCR wird in der Regel eine lokale Tesseract-Installation benötigt:
 - Ubuntu/Debian: `sudo apt install tesseract-ocr`
 - macOS (Homebrew): `brew install tesseract`
@@ -133,6 +144,12 @@ python moderate_image.py ./images --recursive
 ### Ohne externe APIs (Basisinstallation ausreichend)
 ```bash
 python moderate_image.py ./images --recursive --no-apis
+```
+
+Die lokale YOLO-Symbolerkennung erscheint mit kompakten numerischen Scores, zum Beispiel:
+```text
+[ok] YOLO forbidden symbols (...) forbidden_symbols_max_conf=0.00
+[ok] YOLO forbidden symbols (...) forbidden_symbols_max_conf=0.72, forbidden_symbols_block_hit=1.00
 ```
 
 ### JSON-Report schreiben
@@ -199,10 +216,18 @@ OCR_LANG=eng
 PHASH_AUTO_LEARN_ENABLE=0
 PHASH_AUTO_ALLOW_APPEND=1
 PHASH_AUTO_BLOCK_APPEND=1
+
+# Lokales YOLO-Modell für verbotene/schädliche Symbole
+FORBIDDEN_SYMBOLS_YOLO_ENABLE=1
+FORBIDDEN_SYMBOLS_YOLO_MODEL=models/forbidden_symbols_yolo.pt
+FORBIDDEN_SYMBOLS_YOLO_CONF=0.20
+FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF=0.30
+FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF=0.65
+FORBIDDEN_SYMBOLS_YOLO_IMGSZ=960
 ```
 
 Nützliche Schalter:
-- Wichtige Performance-Regler: `SAMPLE_FRAMES`, `API_POLICY`, `YOLO_IMGSZ`, `YOLO_MAX_FRAMES`, `YOLO_MAX_DET`, `OCR_MAX_FRAMES`, `PHASH_ALLOW_MAX_DISTANCE`, `PHASH_BLOCK_MAX_DISTANCE`
+- Wichtige Performance-Regler: `SAMPLE_FRAMES`, `API_POLICY`, `YOLO_IMGSZ`, `YOLO_MAX_FRAMES`, `YOLO_MAX_DET`, `FORBIDDEN_SYMBOLS_YOLO_IMGSZ`, `FORBIDDEN_SYMBOLS_YOLO_MAX_FRAMES`, `OCR_MAX_FRAMES`, `PHASH_ALLOW_MAX_DISTANCE`, `PHASH_BLOCK_MAX_DISTANCE`
 - `API_POLICY=always|on_review|never` steuert, wann API-Engines laufen
 - `OPENAI_DISABLE=1` / `SIGHTENGINE_*` weglassen, wenn API-Engines nicht genutzt werden
 - `PHASH_ALLOW_DISABLE=1` oder `PHASH_BLOCK_DISABLE=1` zum gezielten Abschalten
@@ -211,6 +236,15 @@ Nützliche Schalter:
 - `MODIMG_PARALLEL_ENGINES=1` unabhängige Engines gleichzeitig ausführen (optional/experimentell; standardmäßig deaktiviert)
 - `NO_CHECKS_POLICY=review` steuert den Fallback, wenn keine Engine lief: `ok` = erlauben, `review` = sicherer Standard, `block` = strengster Modus
 
+
+### Lokale YOLO-Konfiguration für verbotene Symbole
+- `FORBIDDEN_SYMBOLS_YOLO_ENABLE=1` aktiviert standardmäßig das gebündelte lokale Modell.
+- `FORBIDDEN_SYMBOLS_YOLO_CONF=0.20` steuert die rohe YOLO-Erkennungs-Confidence.
+- `FORBIDDEN_SYMBOLS_YOLO_REVIEW_CONF=0.30` steuert, ab wann Funde das Urteil auf `REVIEW` anheben.
+- `FORBIDDEN_SYMBOLS_YOLO_BLOCK_CONF=0.65` steuert, ab wann Funde das Urteil auf `BLOCK` anheben.
+- Empfohlene Defaults: `conf=0.20`, `review=0.30`, `block=0.65`, `imgsz=960`.
+- Für schnellere CPU-Scans: `FORBIDDEN_SYMBOLS_YOLO_IMGSZ=640`, `FORBIDDEN_SYMBOLS_YOLO_MAX_FRAMES=1` und `FORBIDDEN_SYMBOLS_YOLO_DEVICE=cpu`.
+
 ---
 
 ## 🧠 Ergebnislogik (OK / REVIEW / BLOCK)
@@ -218,7 +252,9 @@ Nützliche Schalter:
 - **pHash-Short-Circuit** kann früh entscheiden:
   - Allowlist-Treffer → direkt `OK`
   - Blocklist-Treffer → direkt `BLOCK`
-- Danach werden die restlichen Engines aggregiert
+- Wenn pHash nicht per Short-Circuit entscheidet, laufen die lokalen Engines weiter, inklusive `YOLO forbidden symbols`.
+- Die YOLO-Engine für verbotene Symbole trägt zum Hate/Policy-Risiko bei: ab dem Block-Schwellenwert sollte das Ergebnis `BLOCK` werden, ab dem Review-Schwellenwert `REVIEW`.
+- Erkennungslabels und Boxen werden im JSON unter `details.detections` gespeichert.
 - `verdict.py` verdichtet Signale (Nudity, Violence, Hate) zu finalem Urteil
 - Fehlerverhalten lässt sich über `ENGINE_ERROR_POLICY` steuern (`ignore`, `review`, `block`)
 
