@@ -48,7 +48,7 @@ def _load_model(model_path: str | None = None) -> Any:
     if not resolved.exists():
         raise RuntimeError(f"missing forbidden symbols YOLO model: {resolved}")
     if _looks_like_lfs_pointer(resolved):
-        raise RuntimeError(f"Git LFS pointer detected for {resolved}. Run: git lfs install && git lfs pull")
+        raise RuntimeError(f"model pointer file detected instead of real model weights: {resolved}")
 
     key = str(resolved)
     if key in _FORBIDDEN_SYMBOLS_YOLO_CACHE:
